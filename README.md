@@ -20,6 +20,8 @@ source venv/bin/activate
 
 pip install -r requirements.txt
 
+cd src
+
 python3 run.py
 
 ```
