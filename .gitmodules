@@ -1,0 +1,3 @@
+[submodule "cryptolayer_base"]
+	path = cryptolayer_base
+	url = https://github.com/igmunv/cryptolayer-base.git

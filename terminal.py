@@ -1,0 +1,245 @@
+import os
+import logging
+import time
+
+import getpass
+from rich.console import Console
+from colorama import Fore, Style as ColoramaStyle
+from prompt_toolkit import PromptSession
+from prompt_toolkit.patch_stdout import patch_stdout
+from prompt_toolkit import HTML
+from prompt_toolkit import print_formatted_text
+from prompt_toolkit.styles import Style
+
+from cryptolayer_base.cryptolayer import CryptoLayer
+from cryptolayer_base.UIProvider import UIProvider
+
+
+pt_session = PromptSession()
+console = Console()
+console_status = console.status("...")
+
+LOGGER = None
+LOGS_TO_FILE = True
+PRINT_LOGS = False
+
+CURRENT_DIR = os.getcwd()
+DATA_DIR = os.path.join(CURRENT_DIR, 'data')
+LOGS_FILE_PATH = os.path.join(CURRENT_DIR, 'crypto_layer.log')
+
+ON_READY = False
+
+
+class TerminalUI(UIProvider):
+
+    # Запрос пароля
+    def request_password(self, prompt: str) -> str:
+        console_status.stop()
+        password = getpass.getpass(f"{prompt}: ")
+        console_status.start()
+        return password
+
+    # Запрос чего-либо. Возвращаемые данные должны соответствовать data_type
+    def request_data(self, prompt: str, data_type: type):
+        console_status.stop()
+        while True:
+            try:
+                user_input = input(f"{prompt}: {Fore.GREEN}").strip()
+                print(ColoramaStyle.RESET_ALL, end="")
+
+                if data_type is bool:
+                    normalized = user_input.strip().lower()
+                    if normalized in ('true', '1', 'yes', 'y'):
+                        console_status.start()
+                        return True
+                    if normalized in ('false', '0', 'no', 'n', ''):
+                        console_status.start()
+                        return False
+                    error("Could not parse boolean value (True/False)")
+                    continue
+
+                converted_data = data_type(user_input)
+                console_status.start()
+                return converted_data
+
+            except (ValueError, TypeError) as e:
+                error(f"The entered data does not match the required type {data_type.__name__}!")
+
+    # Передать в UI текст состояния
+    def update_status(self, stage: str, message: str, status_type: str = "in_progress"):
+        if status_type == "in_progress":
+            console_status.start()
+            console_status.update(f"[*] {stage}: [yellow]{message}[/yellow]")
+        elif status_type == "error":
+            console_status.start()
+            console_status.update(f"[x] {stage}: [red]{message}[/red]")
+        elif status_type == "success":
+            console_status.stop()
+            console.print(f"[+] {stage}: [green]{message}[/green]")
+
+
+    # Новое сообщение. Передаем его в UI
+    def on_text_received(self, text: str):
+        with patch_stdout():
+            print_formatted_text(HTML(f'<ansiblue>peer:</ansiblue> {text}'))
+
+    # Выбор модуля. На основе списка модулей, эллементы которого выглядят как {name: description}
+    # необходимо вернуть индекс выбранного модуля
+    def select_module(self, modules: list) -> int:
+        console_status.stop()
+        print(f'\n - - Modules - -\n')
+        for n, module in enumerate(modules):
+            for name, desc in module.items():
+                print_formatted_text(HTML(f"{n+1}. <ansiyellow>{name}</ansiyellow>: {desc}"))
+
+        print()
+
+        while True:
+            selected_index = input(f'Choice module: {Fore.GREEN}').strip()
+            print(ColoramaStyle.RESET_ALL, end="")
+
+            if not selected_index.isdigit():
+                error("Enter a number!")
+                continue
+
+            selected_index = int(selected_index) - 1
+
+            if selected_index >= 0 and selected_index < len(modules):
+                console_status.start()
+                return selected_index
+            else:
+                error("Selected messenger does not exist!")
+                continue
+
+    # Получение данных для автризации в модуле (мессенджере).
+    # Передается список данных для авторизации в виде {name: description}
+    # Необходимо вернуть список данных для автризации, где индекс соответствует данным списка credentials
+    def get_credentials(self, credentials: list) -> list:
+        console_status.stop()
+        creds = []
+        if not credentials:
+            return []
+        print(f'\n - - Credentials - -\n')
+        for n, cred in enumerate(credentials):
+            for name, desc in cred.items():
+                if len(credentials) > 1:
+                    print_formatted_text(HTML(f"{n+1}. <ansiyellow>{name}</ansiyellow>: {desc}"))
+                else:
+                    print_formatted_text(HTML(f"'{name}' - {desc}"))
+                user_cred = getpass.getpass(f'{name}: ').strip()
+                creds.append(user_cred)
+                print()
+
+        console_status.start()
+        return creds
+
+    # Проверка подписей на правильность
+    # Возвращает True ДА или False НЕТ
+    def check_signatures(self, my_sign: str, companion_sign: str) -> bool:
+        console_status.stop()
+        print_formatted_text(HTML(f'Your signature (show this to companion):\n| <ansiyellow>{my_sign}</ansiyellow>\n'))
+        print_formatted_text(HTML(f'Companion signature (сheck for correctness):\n| <ansiyellow>{companion_sign}</ansiyellow>\n'))
+        ret = answer(f"Is the companion signature correct?")
+        print()
+        console_status.start()
+        return ret
+
+    # Настроен и готов к получению и передаче сообщений
+    def on_ready(self):
+        global ON_READY
+        ON_READY = True
+
+
+# Для вопросов
+def answer(text, yes_default=False):
+    if yes_default:
+        user_input = pt_session.prompt(
+            HTML(f"{text} (y/N): ")
+        ).strip().lower()
+        if not user_input:
+            return True
+    else:
+        user_input = pt_session.prompt(
+            HTML(f"{text} (y/N): ")
+        ).strip().lower()
+        if not user_input:
+            return False
+
+    if user_input in ["yes", "y"]:
+        return True
+    else:
+        return False
+
+
+# Для ошибок
+def error(text):
+    print_formatted_text(HTML(f'<ansired>{text}</ansired>'))
+
+
+# Инциализация логирования
+def init_logger():
+
+    global LOGGER
+
+    log_format = logging.Formatter(
+        "[%(asctime)s] [%(levelname)s] [%(name)s -> %(funcName)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+    root_logger.handlers.clear()
+
+    # вывод логов в файл
+    if LOGS_TO_FILE:
+        file_handler = logging.FileHandler(
+            LOGS_FILE_PATH, encoding="utf-8", mode="w"
+        )
+        file_handler.setFormatter(log_format)
+        root_logger.addHandler(file_handler)
+
+    # вывод логов в терминал
+    if PRINT_LOGS:
+        terminal_handler = logging.StreamHandler(sys.stdout)
+        terminal_handler.setFormatter(log_format)
+        root_logger.addHandler(terminal_handler)
+
+    LOGGER = logging.getLogger(f"{__file__}.{__name__}")
+
+
+def main():
+
+    init_logger()
+
+    ui = TerminalUI()
+
+    clayer = CryptoLayer(ui, DATA_DIR)
+    clayer.init()
+
+    while not ON_READY:
+        time.sleep(0.5)
+
+    try:
+
+        print("\n - - - - - -\n")
+
+        while True:
+
+            with patch_stdout():
+                user_input = pt_session.prompt(HTML('<ansigreen>you></ansigreen> ')).strip()
+
+            if user_input == ":":
+                if not answer("<ansired>You want send this?</ansired>"):
+                    # sender_console()
+                    continue
+
+            clayer.send(user_input)
+
+    except KeyboardInterrupt:
+        print("\n - - - - - -\n")
+        clayer.stop()
+
+
+
+if __name__ == "__main__":
+    main()
