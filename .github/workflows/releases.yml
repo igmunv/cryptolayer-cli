@@ -41,11 +41,11 @@ jobs:
 
       - name: Build with PyInstaller (Linux)
         if: matrix.os == 'ubuntu-latest'
-        run: pyinstaller --onefile --name ${{ matrix.artifact_name }} run.py
+        run: pyinstaller --onefile --name ${{ matrix.artifact_name }} src/run.py
 
       - name: Build with PyInstaller (Windows)
         if: matrix.os == 'windows-latest'
-        run: pyinstaller --onefile --name ${{ matrix.artifact_name }} run.py
+        run: pyinstaller --onefile --name ${{ matrix.artifact_name }} src/run.py
 
       - name: Rename artifacts for release
         shell: bash
@@ -55,6 +55,11 @@ jobs:
       - name: Upload binaries to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          name: ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
           files: dist/${{ matrix.asset_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
