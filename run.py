@@ -11,8 +11,8 @@ from prompt_toolkit import HTML
 from prompt_toolkit import print_formatted_text
 from prompt_toolkit.styles import Style
 
-from cryptolayer_base.cryptolayer import CryptoLayer
-from cryptolayer_base.UIProvider import UIProvider
+from crypto_layer import CryptoLayer
+from UIProvider import UIProvider
 
 
 pt_session = PromptSession()
