@@ -1,7 +1,17 @@
-# CryptoLayer
+<div align="center">
 
+<img src="docs/logo.svg" width="250" alt="CryptoLayer-CLI Logo">
 
-Консольное приложение для библиотеки cryptolayer-base
+<br>
+<h3>CryptoLayer-CLI</h3>
+<h6> Консольное приложение для безопасного общения в существующих мессенджерах использующее для этого библиотеку <a href="https://github.com/igmunv/cryptolayer">CryptoLayer</a></h6>
+
+[![License](https://img.shields.io/badge/License-MIT-brightgreen?color=orange&style=flat-square)](LICENSE)
+[![Contributions Welcome](https://img.shields.io/badge/Contributions-Welcome-brightgreen?style=flat-square)](CONTRIBUTING.md)
+<br>
+[![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54&style=flat-square)](https://www.python.org/)
+
+</div>
 
 
 ## 🚀 Быстрый старт
