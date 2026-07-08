@@ -12,6 +12,16 @@ git clone https://github.com/igmunv/CryptoLayer.git
 
 cd CryptoLayer
 
+./run.sh
+
+```
+или
+```bash
+
+git clone https://github.com/igmunv/CryptoLayer.git
+
+cd CryptoLayer
+
 git submodule update --init --recursive
 
 python3 -m venv venv
