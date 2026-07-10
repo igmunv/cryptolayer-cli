@@ -1,3 +1,6 @@
 [submodule "cryptolayer"]
 	path = cryptolayer
 	url = https://github.com/igmunv/cryptolayer.git
+[submodule "modules"]
+	path = modules
+	url = https://github.com/igmunv/cryptolayer-modules
