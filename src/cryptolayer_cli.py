@@ -196,16 +196,18 @@ def init_module():
     for n, cred in enumerate(credentials):
         for name, desc in cred.items():
             if len(credentials) > 1:
-                print_formatted_text(HTML(f"{n+1}. <ansiyellow>{name}</ansiyellow>: {desc}"))
+                print(f"{n+1}. {Fore.YELLOW}{name}{ColoramaStyle.RESET_ALL}: {desc}")
             else:
-                print_formatted_text(HTML(f"'{name}' - {desc}"))
-            user_cred = getpass.getpass(f'{name}: ').strip()
+                print(f"{Fore.YELLOW}{name}{ColoramaStyle.RESET_ALL}: {desc}")
+            user_cred = getpass.getpass(f'{Fore.YELLOW}{name}{ColoramaStyle.RESET_ALL}: ').strip()
             creds.append(user_cred)
             print()
 
 
-    compan_id = pt_session.prompt(HTML("Companion ID (in module): <ansigreen>")).strip()
+    compan_id = input(f"Companion ID (in module): {Fore.GREEN}").strip()
+    print(ColoramaStyle.RESET_ALL, end="")
 
+    print()
 
     MODULE_CLASS.init(creds, compan_id)
 
