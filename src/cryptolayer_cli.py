@@ -14,6 +14,8 @@ from prompt_toolkit.styles import Style
 from crypto_layer import CryptoLayer
 from UIProvider import UIProvider
 
+import module_manager
+
 
 pt_session = PromptSession()
 console = Console()
