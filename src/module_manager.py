@@ -1,35 +1,46 @@
 import os
+import sys
 import importlib
 import inspect
 
-from importlib.resources import files
+from base_module import BaseModule
 
-from modules.base import BaseModule
 
 MODULES_DIR_NAME = "modules"
 MODULES = []
 
+
+def get_modules_path():
+    if getattr(sys, 'frozen', False):
+        return os.path.join(sys._MEIPASS, MODULES_DIR_NAME)
+    return os.path.join(os.path.dirname(__file__), MODULES_DIR_NAME)
+
+
 def load():
-    try:
-        modules_package = files(MODULES_DIR_NAME)
-    except Exception:
+
+
+    modules_path = get_modules_path()
+
+    if modules_path not in sys.path:
+        sys.path.insert(0, modules_path)
+
+    if not os.path.exists(modules_path):
         return
 
-    module_dirs = []
 
-    for item in modules_package.iterdir():
-        if item.is_dir() and not item.name.startswith('_'):
-            module_dirs.append(item.name)
+    for item in os.listdir(modules_path):
+        item_path = os.path.join(modules_path, item)
+        if os.path.isdir(item_path) and not item.startswith('_'):
+            try:
 
-    for module_dir in module_dirs:
-        try:
-            module = importlib.import_module(f"{MODULES_DIR_NAME}.{module_dir}.main")
-            for name, obj in inspect.getmembers(module, inspect.isclass):
-                if issubclass(obj, BaseModule) and obj is not BaseModule:
-                    main_class = obj()
-                    MODULES.append(main_class)
-        except ModuleNotFoundError:
-            pass
+                module = importlib.import_module(f"{item}.main")
+
+                for name, obj in inspect.getmembers(module, inspect.isclass):
+                    if issubclass(obj, BaseModule) and obj is not BaseModule:
+                        main_class = obj()
+                        MODULES.append(main_class)
+            except Exception as e:
+                pass
 
 
 def get_modules():

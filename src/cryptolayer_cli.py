@@ -15,6 +15,7 @@ from crypto_layer import CryptoLayer
 from UIProvider import UIProvider
 
 import module_manager
+from base_module import BaseModule
 
 
 pt_session = PromptSession()
@@ -30,6 +31,8 @@ DATA_DIR = os.path.join(CURRENT_DIR, 'data')
 LOGS_FILE_PATH = os.path.join(CURRENT_DIR, 'crypto_layer.log')
 
 ON_READY = False
+
+MODULE_CLASS = None
 
 
 class TerminalUI(UIProvider):
@@ -84,56 +87,6 @@ class TerminalUI(UIProvider):
     def on_text_received(self, text: str):
         with patch_stdout():
             print_formatted_text(HTML(f'<ansiblue>peer:</ansiblue> {text}'))
-
-    # Выбор модуля. На основе списка модулей, эллементы которого выглядят как {name: description}
-    # необходимо вернуть индекс выбранного модуля
-    def select_module(self, modules: list) -> int:
-        console_status.stop()
-        print(f'\n - - Modules - -\n')
-        for n, module in enumerate(modules):
-            for name, desc in module.items():
-                print_formatted_text(HTML(f"{n+1}. <ansiyellow>{name}</ansiyellow>: {desc}"))
-
-        print()
-
-        while True:
-            selected_index = input(f'Choice module: {Fore.GREEN}').strip()
-            print(ColoramaStyle.RESET_ALL, end="")
-
-            if not selected_index.isdigit():
-                error("Enter a number!")
-                continue
-
-            selected_index = int(selected_index) - 1
-
-            if selected_index >= 0 and selected_index < len(modules):
-                console_status.start()
-                return selected_index
-            else:
-                error("Selected messenger does not exist!")
-                continue
-
-    # Получение данных для автризации в модуле (мессенджере).
-    # Передается список данных для авторизации в виде {name: description}
-    # Необходимо вернуть список данных для автризации, где индекс соответствует данным списка credentials
-    def get_credentials(self, credentials: list) -> list:
-        console_status.stop()
-        creds = []
-        if not credentials:
-            return []
-        print(f'\n - - Credentials - -\n')
-        for n, cred in enumerate(credentials):
-            for name, desc in cred.items():
-                if len(credentials) > 1:
-                    print_formatted_text(HTML(f"{n+1}. <ansiyellow>{name}</ansiyellow>: {desc}"))
-                else:
-                    print_formatted_text(HTML(f"'{name}' - {desc}"))
-                user_cred = getpass.getpass(f'{name}: ').strip()
-                creds.append(user_cred)
-                print()
-
-        console_status.start()
-        return creds
 
     # Проверка подписей на правильность
     # Возвращает True ДА или False НЕТ
@@ -209,15 +162,71 @@ def init_logger():
     LOGGER = logging.getLogger(f"{__file__}.{__name__}")
 
 
+def init_module():
+
+    global MODULE_CLASS
+
+    module_manager.load()
+
+    modules = module_manager.get_modules()
+
+    print(f'\n - - Modules - -\n')
+    for n, module in enumerate(modules):
+        for name, desc in module.items():
+            print_formatted_text(HTML(f"{n+1}. <ansiyellow>{name}</ansiyellow>: {desc}"))
+
+    print()
+
+    while True:
+        selected_index = input(f'Choice module: {Fore.GREEN}').strip()
+        print(ColoramaStyle.RESET_ALL, end="")
+
+        if not selected_index.isdigit():
+            error("Enter a number!")
+            continue
+
+        selected_index = int(selected_index) - 1
+
+        if selected_index >= 0 and selected_index < len(modules):
+            MODULE_CLASS = module_manager.get_module_by_index(selected_index)
+            break
+        else:
+            error("Selected messenger does not exist!")
+            continue
+
+
+    credentials = MODULE_CLASS.get_creds()
+
+
+    creds = []
+    print(f'\n - - Credentials - -\n')
+    for n, cred in enumerate(credentials):
+        for name, desc in cred.items():
+            if len(credentials) > 1:
+                print_formatted_text(HTML(f"{n+1}. <ansiyellow>{name}</ansiyellow>: {desc}"))
+            else:
+                print_formatted_text(HTML(f"'{name}' - {desc}"))
+            user_cred = getpass.getpass(f'{name}: ').strip()
+            creds.append(user_cred)
+            print()
+
+
+    compan_id = input(f"Companion ID (in module): {Fore.GREEN}").strip()
+    print(ColoramaStyle.RESET_ALL, end="")
+
+    MODULE_CLASS.init(creds, compan_id)
+
+
+
 def main():
 
     init_logger()
 
-
+    init_module()
 
     ui = TerminalUI()
 
-    clayer = CryptoLayer(ui, DATA_DIR)
+    clayer = CryptoLayer(ui, DATA_DIR, MODULE_CLASS)
     clayer.init()
 
     while not ON_READY:
