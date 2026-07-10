@@ -17,6 +17,8 @@ from UIProvider import UIProvider
 import module_manager
 from base_module import BaseModule
 
+import modules.hidden_imports
+
 
 pt_session = PromptSession()
 console = Console()
