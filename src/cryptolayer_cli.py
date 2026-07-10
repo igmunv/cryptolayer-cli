@@ -211,6 +211,8 @@ def main():
 
     init_logger()
 
+
+
     ui = TerminalUI()
 
     clayer = CryptoLayer(ui, DATA_DIR)

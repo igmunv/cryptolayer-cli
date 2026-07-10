@@ -13,4 +13,4 @@ pip install -r requirements.txt
 
 cd src
 
-python3 run.py
+python3 cryptolayer_cli.py
