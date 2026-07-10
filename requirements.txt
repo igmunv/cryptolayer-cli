@@ -1,2 +1,2 @@
--e ./cryptolayer
+-e ./src/cryptolayer
 cryptolayer-module-interface @ git+https://github.com/igmunv/cryptolayer-module-interface.git
