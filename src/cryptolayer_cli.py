@@ -37,13 +37,6 @@ MODULE_CLASS = None
 
 class TerminalUI(UIProvider):
 
-    # Запрос пароля
-    def request_password(self, prompt: str) -> str:
-        console_status.stop()
-        password = getpass.getpass(f"{prompt}: ")
-        console_status.start()
-        return password
-
     # Запрос чего-либо. Возвращаемые данные должны соответствовать data_type
     def request_data(self, prompt: str, data_type: type):
         console_status.stop()
@@ -211,8 +204,8 @@ def init_module():
             print()
 
 
-    compan_id = input(f"Companion ID (in module): {Fore.GREEN}").strip()
-    print(ColoramaStyle.RESET_ALL, end="")
+    compan_id = pt_session.prompt(HTML("Companion ID (in module): <ansigreen>")).strip()
+
 
     MODULE_CLASS.init(creds, compan_id)
 
@@ -220,14 +213,21 @@ def init_module():
 
 def main():
 
+    password = getpass.getpass(f"Password (for CryptoLayer file encryption): ")
+
     init_logger()
 
     init_module()
 
     ui = TerminalUI()
 
-    clayer = CryptoLayer(ui, DATA_DIR, MODULE_CLASS)
+    clayer = CryptoLayer(ui, DATA_DIR, MODULE_CLASS, password)
+
+    del password
+
     clayer.init()
+
+
 
     while not ON_READY:
         time.sleep(0.5)
