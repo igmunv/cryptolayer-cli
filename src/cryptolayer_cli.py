@@ -2,6 +2,7 @@ import os
 import logging
 import time
 import sys
+from datetime import datetime
 
 import getpass
 from rich.console import Console
@@ -83,9 +84,10 @@ class TerminalUI(UIProvider):
 
 
     # Новое сообщение. Передаем его в UI
-    def on_text_received(self, text: str):
+    def on_text_received(self, time: int, text: str):
+        time_string = datetime.fromtimestamp(timestamp).strftime('%H:%M:%S')
         with patch_stdout():
-            print_formatted_text(HTML(f'<ansiblue>peer:</ansiblue> {text}'))
+            print_formatted_text(HTML(f'<ansiblue>peer [{time_string}]:</ansiblue> {text}'))
 
     # Проверка подписей на правильность
     # Возвращает True ДА или False НЕТ
