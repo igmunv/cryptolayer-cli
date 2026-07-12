@@ -1,6 +1,7 @@
 import os
 import logging
 import time
+import sys
 
 import getpass
 from rich.console import Console
@@ -105,12 +106,11 @@ class TerminalUI(UIProvider):
     # Таймаут при пинге
     def on_ping_timeout(self):
         global clayer
-
-        app = get_app()
-        app.exit(result="forced_exit")
-
+        console_status.stop()
         print_formatted_text(HTML(f'<ansired>Companion is unreachable. Ping timeout</ansired>'))
         clayer.stop()
+
+        sys.exit()
 
 
 # Для вопросов
@@ -229,6 +229,8 @@ def init_module():
 
 
 def main():
+
+    global clayer
 
     password = getpass.getpass(f"Password (for CryptoLayer file encryption): ")
 
