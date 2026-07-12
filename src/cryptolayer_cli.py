@@ -84,7 +84,7 @@ class TerminalUI(UIProvider):
 
 
     # Новое сообщение. Передаем его в UI
-    def on_text_received(self, time: int, text: str):
+    def on_text_received(self, timestamp: int, text: str):
         time_string = datetime.fromtimestamp(timestamp).strftime('%H:%M:%S')
         with patch_stdout():
             print_formatted_text(HTML(f'<ansiblue>peer [{time_string}]:</ansiblue> {text}'))
