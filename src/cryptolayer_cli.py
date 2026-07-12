@@ -105,11 +105,16 @@ class TerminalUI(UIProvider):
 
     # Таймаут при пинге
     def on_ping_timeout(self):
-        global clayer
         console_status.stop()
         print_formatted_text(HTML(f'<ansired>Companion is unreachable. Ping timeout</ansired>'))
         clayer.stop()
+        sys.exit()
 
+    # Собеседник сообщил об отключении
+    def on_disconnect(self):
+        console_status.stop()
+        print_formatted_text(HTML(f'<ansired>Companion decided to disconnect</ansired>'))
+        clayer.stop(send_disconnect=False)
         sys.exit()
 
 
