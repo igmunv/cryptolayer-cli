@@ -29,7 +29,6 @@ def load():
 
 
     for item in os.listdir(modules_path):
-        print(f"MM: item: {item}")
         item_path = os.path.join(modules_path, item)
         if os.path.isdir(item_path) and not item.startswith('_'):
             try:
