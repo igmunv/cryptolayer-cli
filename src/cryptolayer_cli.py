@@ -10,6 +10,7 @@ from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit import HTML
 from prompt_toolkit import print_formatted_text
 from prompt_toolkit.styles import Style
+from prompt_toolkit.application import get_app
 
 from crypto_layer import CryptoLayer
 from UIProvider import UIProvider
@@ -35,6 +36,8 @@ LOGS_FILE_PATH = os.path.join(CURRENT_DIR, 'crypto_layer.log')
 ON_READY = False
 
 MODULE_CLASS = None
+
+clayer = None
 
 
 class TerminalUI(UIProvider):
@@ -98,6 +101,16 @@ class TerminalUI(UIProvider):
     def on_ready(self):
         global ON_READY
         ON_READY = True
+
+    # Таймаут при пинге
+    def on_ping_timeout(self):
+        global clayer
+
+        app = get_app()
+        app.exit(result="forced_exit")
+
+        print_formatted_text(HTML(f'<ansired>Companion is unreachable. Ping timeout</ansired>'))
+        clayer.stop()
 
 
 # Для вопросов
