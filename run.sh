@@ -11,8 +11,8 @@ pip install -r src/modules/common_requirements.txt
 
 pip install -r requirements.txt
 
-cd src
-
 python3 src/modules/generate_hidden_imports.py
+
+cd src
 
 python3 cryptolayer_cli.py
