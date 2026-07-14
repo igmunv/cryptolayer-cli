@@ -34,10 +34,16 @@ LOGGER = None
 LOGS_TO_FILE = True
 PRINT_LOGS = False
 
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(CURRENT_DIR, 'data')
-LOGS_FILE_PATH = os.path.join(CURRENT_DIR, 'crypto_layer.log')
-WC_DICT_FILE_PATH = os.path.join(CURRENT_DIR, 'wc_dict.json')
+IS_FROZEN = getattr(sys, 'frozen', False)
+
+if IS_FROZEN:
+    REAL_EXEC_DIR = os.path.dirname(os.path.abspath(sys.executable))
+else:
+    REAL_EXEC_DIR = os.path.dirname(os.path.abspath(__file__))
+
+DATA_DIR = os.path.join(REAL_EXEC_DIR, 'data')
+LOGS_FILE_PATH = os.path.join(REAL_EXEC_DIR, 'crypto_layer.log')
+WC_DICT_FILE_PATH = os.path.join(REAL_EXEC_DIR, 'wc_dict.json')
 
 ON_READY = False
 
