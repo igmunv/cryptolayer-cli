@@ -124,15 +124,29 @@ class TerminalUI(UIProvider):
 
     # Передать в UI текст состояния
     def update_status(self, stage: str, message: str, status_type: str = "in_progress"):
-        if status_type == "in_progress":
-            console_status.start()
-            console_status.update(f"[*] {stage}: [yellow]{message}[/yellow]")
-        elif status_type == "error":
-            console_status.start()
-            console_status.update(f"[x] {stage}: [red]{message}[/red]")
-        elif status_type == "success":
-            console_status.stop()
-            console.print(f"[+] {stage}: [green]{message}[/green]")
+        global ALREADY_QUIT
+
+        if ALREADY_QUIT:
+
+            if status_type == "in_progress":
+                print_formatted_text(HTML(f"[*] {stage}: <ansiyellow>{message}</ansiyellow>"))
+            elif status_type == "error":
+                print_formatted_text(HTML(f"[x] {stage}: <ansired>{message}</ansired>"))
+            elif status_type == "success":
+                print_formatted_text(HTML(f"[+] {stage}: <ansigreen>{message}</ansigreen>"))
+
+        else:
+
+
+            if status_type == "in_progress":
+                console_status.start()
+                console_status.update(f"[*] {stage}: [yellow]{message}[/yellow]")
+            elif status_type == "error":
+                console_status.start()
+                console_status.update(f"[x] {stage}: [red]{message}[/red]")
+            elif status_type == "success":
+                console_status.stop()
+                console.print(f"[+] {stage}: [green]{message}[/green]")
 
 
     # Новое сообщение. Передаем его в UI
@@ -346,6 +360,9 @@ def main():
             with patch_stdout():
                 user_input = prompt_manager.get_input()
 
+            if ALREADY_QUIT:
+                break
+
             if not user_input:
                 continue
 
@@ -360,7 +377,9 @@ def main():
             clayer.send(user_input)
 
     except KeyboardInterrupt:
-        quit_clayer_cli()
+        pass
+
+    quit_clayer_cli()
 
 
 COMMANDS = {
@@ -397,10 +416,9 @@ def quit_clayer_cli(send_disconnect=True):
     global ALREADY_QUIT
     if not ALREADY_QUIT:
         ALREADY_QUIT = True
-        console_status.start()
+        console_status.stop()
         print("\n - - - - - -\n")
         clayer.stop(send_disconnect)
-        console_status.stop()
         os._exit(0)
 
 
