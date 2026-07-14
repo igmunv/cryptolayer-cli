@@ -14,6 +14,7 @@ from prompt_toolkit import HTML
 from prompt_toolkit import print_formatted_text
 from prompt_toolkit.styles import Style
 from prompt_toolkit.application import get_app
+from prompt_toolkit.key_binding import KeyBindings
 
 from crypto_layer import CryptoLayer
 from UIProvider import UIProvider
@@ -42,6 +43,38 @@ ON_READY = False
 MODULE_CLASS = None
 
 clayer = None
+
+
+class CustomPromptWrapper:
+    def __init__(self, pt_session: PromptSession):
+        self.session = pt_session
+        self.input_finished = False
+        self.last_timestamp = ""
+
+        self.kb = KeyBindings()
+
+        @self.kb.add('enter')
+        def _(event):
+            self.last_timestamp = datetime.now().strftime("%H:%M:%S")
+            self.input_finished = True
+            event.app.invalidate()
+            event.current_buffer.validate_and_handle()
+
+    def get_prompt(self):
+        if self.input_finished:
+            return HTML(f'<ansigreen>you  [{self.last_timestamp}]:</ansigreen> ')
+        return HTML('<ansigreen>you></ansigreen> ')
+
+    def get_input(self):
+        self.input_finished = False
+
+        with patch_stdout():
+            user_input = self.session.prompt(
+                self.get_prompt,
+                key_bindings=self.kb
+            )
+            return user_input.strip()
+
 
 
 class TerminalUI(UIProvider):
@@ -288,12 +321,14 @@ def main():
 
     try:
 
+        prompt_manager = CustomPromptWrapper(pt_session)
+
         print("\n - - - - - -\n")
 
         while True:
 
             with patch_stdout():
-                user_input = pt_session.prompt(HTML('<ansigreen>you></ansigreen> ')).strip()
+                user_input = prompt_manager.get_input()
 
             if user_input == ":":
                 if not answer("<ansired>You want send this?</ansired>"):
