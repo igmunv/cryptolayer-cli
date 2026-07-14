@@ -54,32 +54,42 @@ jobs:
             --name ${{ matrix.artifact_name }} \
             src/cryptolayer_cli.py
 
-      - name: Create release archive with structure
+      # --- СБОРКА АРХИВА ДЛЯ LINUX ---
+      - name: Create Release Archive (Linux)
+        if: matrix.os == 'ubuntu-latest'
         shell: bash
         run: |
-          # Формируем имя архива и папки на основе контекста GitHub
           ARCHIVE_NAME="cryptolayer-cli-${{ github.ref_name }}-${{ matrix.archive_ext }}"
           DIR_NAME="CryptoLayerCLI-${{ github.ref_name }}"
           
-          # Создаем структуру папок внутри dist
           mkdir -p "dist/${DIR_NAME}"
-          
-          # Переносим бинарник во внутреннюю папку
           mv "dist/${{ matrix.artifact_name }}" "dist/${DIR_NAME}/"
-          
-          # Копируем словарь
           cp "src/wc_dict.json" "dist/${DIR_NAME}/"
           
-          # Архивируем
           cd dist
-          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
-            tar -czf "${ARCHIVE_NAME}" "${DIR_NAME}"
-          else
-            tar -a -cf "${ARCHIVE_NAME}" "${DIR_NAME}"
-          fi
-          
-          # Удаляем временную папку
+          tar -czf "${ARCHIVE_NAME}" "${DIR_NAME}"
           rm -rf "${DIR_NAME}"
+
+      # --- СБОРКА АРХИВА ДЛЯ WINDOWS (через родной PowerShell) ---
+      - name: Create Release Archive (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $ArchiveName = "cryptolayer-cli-${{ github.ref_name }}-${{ matrix.archive_ext }}"
+          $DirName = "CryptoLayerCLI-${{ github.ref_name }}"
+          
+          # Создаем внутреннюю папку структуры
+          New-Item -ItemType Directory -Force -Path "dist/$DirName"
+          
+          # Перемещаем бинарник и копируем JSON
+          Move-Item -Path "dist/${{ matrix.artifact_name }}" -Destination "dist/$DirName/"
+          Copy-Item -Path "src/wc_dict.json" -Destination "dist/$DirName/"
+          
+          # Пакуем через системный Compress-Archive
+          Compress-Archive -Path "dist/$DirName" -DestinationPath "dist/$ArchiveName" -Force
+          
+          # Чистим временную папку
+          Remove-Item -Recurse -Force -Path "dist/$DirName"
 
       - name: Upload binaries to GitHub Release
         uses: softprops/action-gh-release@v2
@@ -89,7 +99,6 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
-          # Теперь имя файла собирается стандартными переменными, доступными всегда
           files: dist/cryptolayer-cli-${{ github.ref_name }}-${{ matrix.archive_ext }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
