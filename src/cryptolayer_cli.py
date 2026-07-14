@@ -7,6 +7,7 @@ import json
 
 import getpass
 from rich.console import Console
+import colorama
 from colorama import Fore, Style as ColoramaStyle
 from prompt_toolkit import PromptSession
 from prompt_toolkit.patch_stdout import patch_stdout
@@ -24,7 +25,7 @@ from base_module import BaseModule
 
 import modules.hidden_imports
 
-
+colorama.init()
 pt_session = PromptSession()
 console = Console()
 console_status = console.status("...")
@@ -33,7 +34,7 @@ LOGGER = None
 LOGS_TO_FILE = True
 PRINT_LOGS = False
 
-CURRENT_DIR = os.getcwd()
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(CURRENT_DIR, 'data')
 LOGS_FILE_PATH = os.path.join(CURRENT_DIR, 'crypto_layer.log')
 WC_DICT_FILE_PATH = os.path.join(CURRENT_DIR, 'wc_dict.json')
@@ -41,6 +42,8 @@ WC_DICT_FILE_PATH = os.path.join(CURRENT_DIR, 'wc_dict.json')
 ON_READY = False
 
 MODULE_CLASS = None
+
+ALREADY_QUIT = False
 
 clayer = None
 
@@ -50,19 +53,27 @@ class CustomPromptWrapper:
         self.session = pt_session
         self.input_finished = False
         self.last_timestamp = ""
+        self.current_promt = f"<ansigreen>you  [{self.last_timestamp}]:</ansigreen> "
 
         self.kb = KeyBindings()
 
         @self.kb.add('enter')
         def _(event):
-            self.last_timestamp = datetime.now().strftime("%H:%M:%S")
+            user_text = event.current_buffer.text.strip()
+            if user_text == ":":
+                self.current_promt = f"<ansiyellow>you> </ansiyellow>"
+            elif user_text == "":
+                self.current_promt = f"<ansibrightblack>you> </ansibrightblack>"
+            else:
+                self.last_timestamp = datetime.now().strftime("%H:%M:%S")
+                self.current_promt = f"<ansigreen>you  [{self.last_timestamp}]:</ansigreen> "
             self.input_finished = True
             event.app.invalidate()
             event.current_buffer.validate_and_handle()
 
     def get_prompt(self):
         if self.input_finished:
-            return HTML(f'<ansigreen>you  [{self.last_timestamp}]:</ansigreen> ')
+            return HTML(self.current_promt)
         return HTML('<ansigreen>you></ansigreen> ')
 
     def get_input(self):
@@ -144,15 +155,14 @@ class TerminalUI(UIProvider):
     def on_ping_timeout(self):
         console_status.stop()
         print_formatted_text(HTML(f'<ansired>Companion is unreachable. Ping timeout</ansired>'))
-        clayer.stop()
-        sys.exit()
+        quit_clayer_cli(send_disconnect=False)
 
     # Собеседник сообщил об отключении
     def on_disconnect(self):
-        console_status.stop()
-        print_formatted_text(HTML(f'<ansired>Companion decided to disconnect</ansired>'))
-        clayer.stop(send_disconnect=False)
-        sys.exit()
+        if not ALREADY_QUIT:
+            console_status.stop()
+            print_formatted_text(HTML(f'<ansired>Companion decided to disconnect</ansired>'))
+            quit_clayer_cli(send_disconnect=False)
 
 
 # Для вопросов
@@ -330,17 +340,62 @@ def main():
             with patch_stdout():
                 user_input = prompt_manager.get_input()
 
+            if not user_input:
+                continue
+
             if user_input == ":":
-                if not answer("<ansired>You want send this?</ansired>"):
-                    # sender_console()
+                if not answer("<ansired>Send this? (or open console)</ansired>"):
+                    cmd()
                     continue
+                else:
+                    last_timestamp = datetime.now().strftime("%H:%M:%S")
+                    print_formatted_text(HTML(f"<ansigreen>you  [{last_timestamp}]</ansigreen>: {user_input}"))
 
             clayer.send(user_input)
 
     except KeyboardInterrupt:
-        print("\n - - - - - -\n")
-        clayer.stop()
+        quit_clayer_cli()
 
+
+COMMANDS = {
+        "q": "Quit CryptoLayer CLI",
+        "b": "Back to chat",
+}
+
+
+def cmd():
+    try:
+        all_commands_text = "\n - - COMMANDS - - \n"
+        for c in COMMANDS:
+            all_commands_text += f"<ansiyellow>{c}</ansiyellow> - {COMMANDS[c]}\n"
+        print_formatted_text(HTML(all_commands_text))
+        while True:
+            user_input = pt_session.prompt(HTML(f"<ansiyellow>CMD></ansiyellow> ")).strip().lower()
+
+            if user_input == "q":
+                quit_clayer_cli()
+
+            elif user_input == "b":
+                return
+
+            elif user_input == "":
+                continue
+
+            else:
+                error("Unknown command!\n")
+                print_formatted_text(HTML(all_commands_text))
+    except KeyboardInterrupt:
+        return
+
+def quit_clayer_cli(send_disconnect=True):
+    global ALREADY_QUIT
+    if not ALREADY_QUIT:
+        ALREADY_QUIT = True
+        console_status.start()
+        print("\n - - - - - -\n")
+        clayer.stop(send_disconnect)
+        console_status.stop()
+        os._exit(0)
 
 
 if __name__ == "__main__":
