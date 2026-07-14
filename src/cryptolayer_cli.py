@@ -3,6 +3,7 @@ import logging
 import time
 import sys
 from datetime import datetime
+import json
 
 import getpass
 from rich.console import Console
@@ -34,6 +35,7 @@ PRINT_LOGS = False
 CURRENT_DIR = os.getcwd()
 DATA_DIR = os.path.join(CURRENT_DIR, 'data')
 LOGS_FILE_PATH = os.path.join(CURRENT_DIR, 'crypto_layer.log')
+WC_DICT_FILE_PATH = os.path.join(CURRENT_DIR, 'wc_dict.json')
 
 ON_READY = False
 
@@ -146,6 +148,30 @@ def error(text):
     print_formatted_text(HTML(f'<ansired>{text}</ansired>'))
 
 
+# Чтение JSON из файла
+def load_json_to_dict(file_path):
+
+    try:
+        with open(file_path, "r", encoding="utf-8") as file:
+            data = json.load(file)
+
+        # Проверяем, что на выходе именно словарь, а не список или строка
+        if isinstance(data, dict):
+            return data
+        else:
+            error(
+                f"Data in '{file_path}' = {type(data).__name__}, but not dict"
+            )
+            return None
+
+    except FileNotFoundError:
+        error(f"File '{file_path}' not found!")
+        return None
+    except json.JSONDecodeError as e:
+        error(f"File '{file_path}' contains not correct JSON ({e})")
+        return None
+
+
 # Инциализация логирования
 def init_logger():
 
@@ -247,7 +273,9 @@ def main():
 
     ui = TerminalUI()
 
-    clayer = CryptoLayer(ui, DATA_DIR, MODULE_CLASS, password)
+    wc_dict = load_json_to_dict(WC_DICT_FILE_PATH)
+
+    clayer = CryptoLayer(ui, DATA_DIR, MODULE_CLASS, password, wc_dict)
 
     del password
 

@@ -6,7 +6,7 @@ on:
       - 'v*.*.*'
 
 permissions:
-  contents: write 
+  contents: write
 
 jobs:
   build:
@@ -16,11 +16,11 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            artifact_name: cryptolayer_cli
-            asset_name: cryptolayer-linux-amd64
+            artifact_name: cryptolayer-cli
+            archive_name: cryptolayer-cli-linux-amd64.tar.gz
           - os: windows-latest
-            artifact_name: cryptolayer_cli.exe
-            asset_name: cryptolayer-windows-amd64.exe
+            artifact_name: cryptolayer-cli.exe
+            archive_name: cryptolayer-cli-windows-amd64.zip
 
     steps:
       - name: Checkout main repository
@@ -36,30 +36,44 @@ jobs:
       - name: Prepare dependencies and build
         shell: bash
         run: |
-
           python -m pip install --upgrade pip
           pip install pyinstaller
-          
+
           python3 src/modules/generate_reqs.py
-          
+
           pip install -r src/modules/common_requirements.txt
           pip install -r requirements.txt
 
           python3 src/modules/generate_hidden_imports.py
 
           COLLECT_FLAGS=$(cat src/modules/pyinstaller_flags.txt)
-          
+
           pyinstaller --onefile \
             --add-data "src/modules:modules" \
             $COLLECT_FLAGS \
             --name ${{ matrix.artifact_name }} \
             src/cryptolayer_cli.py
 
-      - name: Rename artifacts
+      - name: Create release archive with structure
         shell: bash
         run: |
-          mkdir -p dist
-          mv dist/${{ matrix.artifact_name }} dist/${{ matrix.asset_name }}
+
+          DIR_NAME="CryptoLayerCLI-${{ github.ref_name }}"
+
+          mkdir -p "dist/${DIR_NAME}"
+
+          mv "dist/${{ matrix.artifact_name }}" "dist/${DIR_NAME}/"
+
+          cp "src/wc_dict.json" "dist/${DIR_NAME}/"
+
+          cd dist
+          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            tar -czf "${{ matrix.archive_name }}" "${DIR_NAME}"
+          else
+            zip -r "${{ matrix.archive_name }}" "${DIR_NAME}"
+          fi
+
+          rm -rf "${DIR_NAME}"
 
       - name: Upload binaries to GitHub Release
         uses: softprops/action-gh-release@v2
@@ -69,6 +83,6 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
-          files: dist/${{ matrix.asset_name }}
+          files: dist/${{ matrix.archive_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
