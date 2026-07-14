@@ -417,7 +417,6 @@ def quit_clayer_cli(send_disconnect=True):
     if not ALREADY_QUIT:
         ALREADY_QUIT = True
         console_status.stop()
-        print("\n - - - - - -\n")
         clayer.stop(send_disconnect)
         os._exit(0)
 
