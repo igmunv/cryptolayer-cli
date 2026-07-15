@@ -28,11 +28,11 @@ jobs:
         with:
           submodules: recursive
 
-      # --- СБОРКА ДЛЯ LINUX (через Docker для совместимости glibc) ---
+      # --- СБОРКА ДЛЯ LINUX (Docker) ---
       - name: Build Linux binary in Docker
         if: matrix.os == 'ubuntu-latest'
         run: |
-          docker run --rm -v "${{ github.workspace }}:/src" -w /src python:3.13-bullseye bash -c "\
+          docker run --rm -v "$PWD:/project" -w /project python:3.13-bullseye bash -c "\
             pip install --upgrade pip && \
             pip install pyinstaller -r requirements.txt -r src/modules/common_requirements.txt && \
             python3 src/modules/generate_reqs.py && \
@@ -44,7 +44,7 @@ jobs:
               --name ${{ matrix.artifact_name }} \
               src/cryptolayer_cli.py"
 
-      # --- СБОРКА ДЛЯ WINDOWS (как и было) ---
+      # --- СБОРКА ДЛЯ WINDOWS ---
       - name: Set up Python
         if: matrix.os == 'windows-latest'
         uses: actions/setup-python@v5
@@ -54,14 +54,16 @@ jobs:
       - name: Build Windows binary
         if: matrix.os == 'windows-latest'
         shell: bash
+        # Явно указываем рабочую директорию, чтобы файлы нашлись
+        working-directory: ${{ github.workspace }}
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller -r requirements.txt -r src/modules/common_requirements.txt
           python3 src/modules/generate_reqs.py
           python3 src/modules/generate_hidden_imports.py
           COLLECT_FLAGS=$(cat src/modules/pyinstaller_flags.txt)
-          pyinstaller --onefile --add-data "src/modules:modules" $COLLECT_FLAGS --name ${{ matrix.artifact_name }} src/cryptolayer_cli.py
-
+          pyinstaller --onefile --add-data "src/modules;modules" $COLLECT_FLAGS --name ${{ matrix.artifact_name }} src/cryptolayer_cli.py
+          
       # --- ФИНИШНАЯ ОБРАБОТКА (ОБЩАЯ) ---
       - name: Create Release Archive (Linux)
         if: matrix.os == 'ubuntu-latest'
