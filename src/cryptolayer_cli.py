@@ -4,6 +4,12 @@ import time
 import sys
 from datetime import datetime
 import json
+import base64
+
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 import getpass
 from rich.console import Console
@@ -53,6 +59,8 @@ MODULE_CLASS = None
 ALREADY_QUIT = False
 
 clayer = None
+
+PASSWORD = None
 
 
 class CustomPromptWrapper:
@@ -323,17 +331,53 @@ def init_module():
     credentials = MODULE_CLASS.get_creds()
 
 
-    creds = []
+    CREDS = []
     print(f'\n - - Credentials - -\n')
-    for n, cred in enumerate(credentials):
-        for name, desc in cred.items():
-            if len(credentials) > 1:
-                print(f"{n+1}. {Fore.YELLOW}{name}{ColoramaStyle.RESET_ALL}: {desc}")
-            else:
-                print(f"{Fore.YELLOW}{name}{ColoramaStyle.RESET_ALL}: {desc}")
-            user_cred = getpass.getpass(f'{Fore.YELLOW}{name}{ColoramaStyle.RESET_ALL}: ').strip()
-            creds.append(user_cred)
+
+    saved_credentials = load_credentials(module_uid)
+
+    if saved_credentials:
+
+        if answer("Do you want to choose a credentials from your saved list?", yes_default=True):
+
             print()
+
+            for n, sc in enumerate(saved_credentials):
+                print(f"{n+1}. {Fore.YELLOW}{sc}{ColoramaStyle.RESET_ALL}")
+
+            print()
+
+            sel_index = choice_index("Choice credentials", list(saved_credentials.items()))
+            CREDS = list(saved_credentials.items())[sel_index][1]
+
+            if len(CREDS) != len(credentials):
+                error("The selected credentials do not meet the module requirements. Enter them manually")
+                CREDS = None
+
+    if not CREDS:
+
+        for n, cred in enumerate(credentials):
+            for name, desc in cred.items():
+                if len(credentials) > 1:
+                    print(f"{n+1}. {Fore.YELLOW}{name}{ColoramaStyle.RESET_ALL}: {desc}")
+                else:
+                    print(f"{Fore.YELLOW}{name}{ColoramaStyle.RESET_ALL}: {desc}")
+                user_cred = getpass.getpass(f'{Fore.YELLOW}{name}{ColoramaStyle.RESET_ALL}: ').strip()
+                CREDS.append(user_cred)
+                print()
+
+        if answer("Do you want to save this credentials?"):
+
+            while True:
+                CRED_NAME = input(f"Credentials name: {Fore.GREEN}").strip()
+                print(ColoramaStyle.RESET_ALL, end="")
+                if CRED_NAME:
+                    if CRED_NAME not in list(saved_credentials.values()):
+                        break
+                    else:
+                        error("A credentials with that name already exists!")
+            saved_credentials[CRED_NAME] = CREDS
+            save_credentials(saved_credentials, module_uid)
 
     print(f'\n - - Companion - -\n')
 
@@ -364,13 +408,81 @@ def init_module():
                 while True:
                     COMPAN_NAME = input(f"Companion name: {Fore.GREEN}").strip()
                     if COMPAN_NAME:
-                        break
+                        if COMPAN_NAME not in list(saved_companions.values()):
+                            break
+                        else:
+                            error("A companion with that name already exists!")
                 saved_companions[COMPAN_ID] = COMPAN_NAME
                 save_dict_to_json(saved_companions, get_module_companions_file_path(module_uid))
 
     print()
 
-    MODULE_CLASS.init(creds, COMPAN_ID)
+    MODULE_CLASS.init(CREDS, COMPAN_ID)
+
+
+def encrypt_to_base64(password: str, data: str) -> str:
+
+    salt = os.urandom(16)
+    hkdf = HKDF(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        info=b"public-key-encryption",
+    )
+
+    key = hkdf.derive(password.encode())
+    aesgcm = AESGCM(key)
+    nonce = os.urandom(12)
+    encrypted_data = aesgcm.encrypt(nonce, data.encode(), associated_data=None)
+
+    full_blob = salt + nonce + encrypted_data
+
+    return base64.b64encode(full_blob).decode('utf-8')
+
+
+def decrypt_from_base64(password: str, b64_data: str) -> str:
+    raw_blob = base64.b64decode(b64_data)
+
+    salt = raw_blob[:16]
+    nonce = raw_blob[16:28]
+    encrypted_data = raw_blob[28:]
+
+    hkdf = HKDF(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        info=b"public-key-encryption",
+    )
+    key = hkdf.derive(password.encode())
+
+    aesgcm = AESGCM(key)
+    decrypted_bytes = aesgcm.decrypt(nonce, encrypted_data, associated_data=None)
+
+    return decrypted_bytes.decode('utf-8')
+
+
+def load_credentials(module_uid) -> dict:
+    ready_creds = {}
+    encrypt_creds = load_json_to_dict(get_module_credentials_file_path(module_uid))
+    if encrypt_creds:
+        for name in encrypt_creds:
+            creds = encrypt_creds[name]
+            ready_list = []
+            for c in creds:
+                ready_list.append(decrypt_from_base64(PASSWORD, c))
+            ready_creds[name] = ready_list
+    return ready_creds
+
+
+def save_credentials(creds: dict, module_uid):
+    ready_encrypt_creds = {}
+    for name in creds:
+        ready_list = []
+        for c in creds[name]:
+            ready_list.append(encrypt_to_base64(PASSWORD, c))
+        ready_encrypt_creds[name] = ready_list
+
+    save_dict_to_json(ready_encrypt_creds, get_module_credentials_file_path(module_uid))
 
 
 def get_module_companions_file_path(uid):
@@ -399,10 +511,11 @@ def choice_index(prompt, array):
 def main():
 
     global clayer
+    global PASSWORD
 
     os.makedirs(CLI_DATA_DIR, exist_ok=True)
 
-    password = getpass.getpass(f"Password (for CryptoLayer file encryption): ")
+    PASSWORD = getpass.getpass(f"Password (for CryptoLayer file encryption): ")
 
     init_logger()
 
@@ -412,9 +525,9 @@ def main():
 
     wc_dict = load_json_to_dict(WC_DICT_FILE_PATH)
 
-    clayer = CryptoLayer(ui, DATA_DIR, MODULE_CLASS, password, wc_dict)
+    clayer = CryptoLayer(ui, DATA_DIR, MODULE_CLASS, PASSWORD, wc_dict)
 
-    del password
+    del PASSWORD
 
     clayer.init()
 
