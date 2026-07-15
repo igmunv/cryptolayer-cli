@@ -5,6 +5,7 @@ import sys
 from datetime import datetime
 import json
 import base64
+import html
 
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives import serialization, hashes
@@ -162,7 +163,7 @@ class TerminalUI(UIProvider):
     def on_text_received(self, timestamp: int, text: str):
         time_string = datetime.fromtimestamp(timestamp).strftime('%H:%M:%S')
         with patch_stdout():
-            print_formatted_text(HTML(f'<ansiblue>peer [{time_string}]:</ansiblue> {text}'))
+            print_formatted_text(HTML(f'<ansiblue>peer [{time_string}]:</ansiblue> {html.escape(text)}'))
 
     # Проверка подписей на правильность
     # Возвращает True ДА или False НЕТ
