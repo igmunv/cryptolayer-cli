@@ -42,6 +42,7 @@ else:
     REAL_EXEC_DIR = os.path.dirname(os.path.abspath(__file__))
 
 DATA_DIR = os.path.join(REAL_EXEC_DIR, 'data')
+CLI_DATA_DIR = os.path.join(DATA_DIR, 'cli')
 LOGS_FILE_PATH = os.path.join(REAL_EXEC_DIR, 'crypto_layer.log')
 WC_DICT_FILE_PATH = os.path.join(REAL_EXEC_DIR, 'wc_dict.json')
 
@@ -189,7 +190,7 @@ class TerminalUI(UIProvider):
 def answer(text, yes_default=False):
     if yes_default:
         user_input = pt_session.prompt(
-            HTML(f"{text} (y/N): ")
+            HTML(f"{text} (Y/n): ")
         ).strip().lower()
         if not user_input:
             return True
@@ -225,14 +226,33 @@ def load_json_to_dict(file_path):
             error(
                 f"Data in '{file_path}' = {type(data).__name__}, but not dict"
             )
-            return None
+            return {}
 
     except FileNotFoundError:
-        error(f"File '{file_path}' not found!")
-        return None
+        return {}
     except json.JSONDecodeError as e:
-        error(f"File '{file_path}' contains not correct JSON ({e})")
-        return None
+        return {}
+
+
+# Запись словаря в JSON-файл
+def save_dict_to_json(data, file_path):
+
+    # Проверяка что на входе словарь
+    if not isinstance(data, dict):
+        error(f"Data to save is {type(data).__name__}, but expected dict")
+        return False
+
+    try:
+        with open(file_path, "w", encoding="utf-8") as file:
+            json.dump(data, file, ensure_ascii=False, indent=4)
+        return True
+
+    except TypeError as e:
+        error(f"Data contains elements that cannot be serialized to JSON: {e}")
+        return False
+    except OSError as e:
+        error(f"Could not write to file '{file_path}': {e}")
+        return False
 
 
 # Инциализация логирования
@@ -298,6 +318,7 @@ def init_module():
             error("Selected messenger does not exist!")
             continue
 
+    module_uid = MODULE_CLASS.unique_id
 
     credentials = MODULE_CLASS.get_creds()
 
@@ -314,19 +335,72 @@ def init_module():
             creds.append(user_cred)
             print()
 
+    print(f'\n - - Companion - -\n')
 
-    compan_id = input(f"Companion ID (in module): {Fore.GREEN}").strip()
-    print(ColoramaStyle.RESET_ALL, end="")
+    saved_companions = load_json_to_dict(get_module_companions_file_path(module_uid))
+
+    COMPAN_ID = None
+
+    if saved_companions:
+
+        if answer("Do you want to choose a companion from your saved list?", yes_default=True):
+
+            print()
+
+            for n, sc in enumerate(saved_companions):
+                print(f"{n+1}. {Fore.YELLOW}{saved_companions.get(sc)}{ColoramaStyle.RESET_ALL}")
+
+            print()
+
+            sel_index = choice_index("Choice companion", list(saved_companions.items()))
+            COMPAN_ID = list(saved_companions.keys())[sel_index]
+
+    if not COMPAN_ID:
+        COMPAN_ID = input(f"Companion ID (in module): {Fore.GREEN}").strip()
+        print(ColoramaStyle.RESET_ALL, end="")
+
+        if not saved_companions.get(COMPAN_ID):
+            if answer("Do you want to save this companion?", yes_default=True):
+                while True:
+                    COMPAN_NAME = input(f"Companion name: {Fore.GREEN}").strip()
+                    if COMPAN_NAME:
+                        break
+                saved_companions[COMPAN_ID] = COMPAN_NAME
+                save_dict_to_json(saved_companions, get_module_companions_file_path(module_uid))
 
     print()
 
-    MODULE_CLASS.init(creds, compan_id)
+    MODULE_CLASS.init(creds, COMPAN_ID)
 
 
+def get_module_companions_file_path(uid):
+    return os.path.join(CLI_DATA_DIR, f'companions_{uid}.json')
+
+def get_module_credentials_file_path(uid):
+    return os.path.join(CLI_DATA_DIR, f'credentials_{uid}.json')
+
+def choice_index(prompt, array):
+    while True:
+        selected_index = input(f'{prompt}: {Fore.GREEN}').strip()
+        print(ColoramaStyle.RESET_ALL, end="")
+
+        if not selected_index.isdigit():
+            error("Enter a number!")
+            continue
+
+        selected_index = int(selected_index) - 1
+
+        if selected_index >= 0 and selected_index < len(array):
+            return selected_index
+        else:
+            error("Selected index does not exist!")
+            continue
 
 def main():
 
     global clayer
+
+    os.makedirs(CLI_DATA_DIR, exist_ok=True)
 
     password = getpass.getpass(f"Password (for CryptoLayer file encryption): ")
 
