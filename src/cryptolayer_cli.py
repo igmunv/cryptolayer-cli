@@ -11,6 +11,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+import bcrypt
 
 import getpass
 from rich.console import Console
@@ -52,6 +53,7 @@ DATA_DIR = os.path.join(REAL_EXEC_DIR, 'data')
 CLI_DATA_DIR = os.path.join(DATA_DIR, 'cli')
 LOGS_FILE_PATH = os.path.join(REAL_EXEC_DIR, 'crypto_layer.log')
 WC_DICT_FILE_PATH = os.path.join(REAL_EXEC_DIR, 'wc_dict.json')
+HASH_FILE_PATH = os.path.join(CLI_DATA_DIR, "password.hash")
 
 ON_READY = False
 
@@ -101,7 +103,6 @@ class CustomPromptWrapper:
                 key_bindings=self.kb
             )
             return user_input.strip()
-
 
 
 class TerminalUI(UIProvider):
@@ -219,6 +220,29 @@ def answer(text, yes_default=False):
 # Для ошибок
 def error(text):
     print_formatted_text(HTML(f'<ansired>{text}</ansired>'))
+
+
+# Хэширует пароль и записывает в файл
+def save_password_hash(password: str, filepath: str = HASH_FILE_PATH):
+
+    password_bytes = password.encode('utf-8')
+    salt = bcrypt.gensalt(rounds=12)
+    hashed = bcrypt.hashpw(password_bytes, salt)
+
+    with open(filepath, "wb") as f:
+        f.write(hashed)
+
+
+# Проверяет пароль с сохраненным хэшем
+def verify_password(input_password: str, filepath: str = HASH_FILE_PATH) -> bool:
+
+    if not os.path.exists(filepath):
+        return False
+
+    with open(filepath, "rb") as f:
+        stored_hash = f.read()
+
+    return bcrypt.checkpw(input_password.encode('utf-8'), stored_hash)
 
 
 # Чтение JSON из файла
@@ -367,7 +391,7 @@ def init_module():
                 CREDS.append(user_cred)
                 print()
 
-        if answer("Do you want to save this credentials?"):
+        if answer("Do you want to save this credentials?", yes_default=True):
 
             while True:
                 CRED_NAME = input(f"Credentials name: {Fore.GREEN}").strip()
@@ -516,7 +540,32 @@ def main():
 
     os.makedirs(CLI_DATA_DIR, exist_ok=True)
 
-    PASSWORD = getpass.getpass(f"Password (for CryptoLayer file encryption): ")
+    if os.path.exists(HASH_FILE_PATH):
+        while True:
+            PASSWORD = getpass.getpass(f"Enter password: ").strip()
+
+            if not PASSWORD:
+                error("Empty! Please try again...")
+                continue
+
+            if verify_password(PASSWORD):
+               break
+            else:
+                error("Incorrect password! (if forgotten, delete the 'data' directory)")
+                continue
+
+
+    else:
+        while True:
+            PASSWORD = getpass.getpass(f"Set password (for CryptoLayer file encryption): ").strip()
+            if not PASSWORD:
+                error("Empty! Please try again...")
+                continue
+            break
+        save_password_hash(PASSWORD)
+
+
+
 
     init_logger()
 
@@ -606,8 +655,14 @@ def quit_clayer_cli(send_disconnect=True):
         ALREADY_QUIT = True
         console_status.stop()
         clayer.stop(send_disconnect)
+        print(ColoramaStyle.RESET_ALL, end="")
+        print()
         os._exit(0)
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    finally:
+        print(ColoramaStyle.RESET_ALL, end="")
+        print()
