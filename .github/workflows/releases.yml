@@ -28,66 +28,102 @@ jobs:
         with:
           submodules: recursive
 
-      # --- СБОРКА ДЛЯ LINUX (Docker) ---
-      - name: Build Linux binary in Docker
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          docker run --rm -v "$PWD:/project" -w /project python:3.13-bullseye bash -c "\
-            pip install --upgrade pip && \
-            pip install pyinstaller -r requirements.txt -r src/modules/common_requirements.txt && \
-            python3 src/modules/generate_reqs.py && \
-            python3 src/modules/generate_hidden_imports.py && \
-            COLLECT_FLAGS=\$(cat src/modules/pyinstaller_flags.txt) && \
-            pyinstaller --onefile \
-              --add-data \"src/modules:modules\" \
-              \$COLLECT_FLAGS \
-              --name ${{ matrix.artifact_name }} \
-              src/cryptolayer_cli.py"
-
-      # --- СБОРКА ДЛЯ WINDOWS ---
       - name: Set up Python
-        if: matrix.os == 'windows-latest'
         uses: actions/setup-python@v5
         with:
           python-version: '3.13'
 
-      - name: Build Windows binary
+      # --- СБОРКА ДЛЯ WINDOWS ---
+      - name: Prepare dependencies and build (Windows)
         if: matrix.os == 'windows-latest'
         shell: bash
-        # Явно указываем рабочую директорию, чтобы файлы нашлись
-        working-directory: ${{ github.workspace }}
         run: |
           python -m pip install --upgrade pip
-          pip install pyinstaller -r requirements.txt -r src/modules/common_requirements.txt
-          python3 src/modules/generate_reqs.py
-          python3 src/modules/generate_hidden_imports.py
-          COLLECT_FLAGS=$(cat src/modules/pyinstaller_flags.txt)
-          pyinstaller --onefile --add-data "src/modules;modules" $COLLECT_FLAGS --name ${{ matrix.artifact_name }} src/cryptolayer_cli.py
+          pip install pyinstaller
           
-      # --- ФИНИШНАЯ ОБРАБОТКА (ОБЩАЯ) ---
+          python3 src/modules/generate_reqs.py
+          
+          pip install -r src/modules/common_requirements.txt
+          pip install -r requirements.txt
+
+          python3 src/modules/generate_hidden_imports.py
+
+          COLLECT_FLAGS=$(cat src/modules/pyinstaller_flags.txt)
+          
+          # Внимание: для Windows разделитель путей в --add-data это `;` (точка с запятой)
+          pyinstaller --onefile \
+            --add-data "src/modules;modules" \
+            $COLLECT_FLAGS \
+            --name ${{ matrix.artifact_name }} \
+            src/cryptolayer_cli.py
+
+      # --- СБОРКА ДЛЯ LINUX (В DOCKER DEBIAN 11) ---
+      - name: Prepare dependencies and build (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          # Запускаем официальный образ Python 3.13 на базе Debian 11 (Bullseye)
+          docker run --rm -v ${{ github.workspace }}:/app -w /app python:3.13-bullseye bash -c '
+            set -e
+            python -m pip install --upgrade pip
+            pip install pyinstaller
+            
+            python3 src/modules/generate_reqs.py
+            
+            pip install -r src/modules/common_requirements.txt
+            pip install -r requirements.txt
+
+            python3 src/modules/generate_hidden_imports.py
+
+            COLLECT_FLAGS=$(cat src/modules/pyinstaller_flags.txt)
+            
+            pyinstaller --onefile \
+              --add-data "src/modules:modules" \
+              $COLLECT_FLAGS \
+              --name "${{ matrix.artifact_name }}" \
+              src/cryptolayer_cli.py
+
+            # Передаем права на созданные файлы от root обратно пользователю Github Actions (runner)
+            # Это необходимо, чтобы следующий шаг упаковки в tar не упал из-за отсутствия прав
+            chown -R '"$(id -u):$(id -g)"' dist/ build/
+          '
+
+      # --- СБОРКА АРХИВА ДЛЯ LINUX ---
       - name: Create Release Archive (Linux)
         if: matrix.os == 'ubuntu-latest'
         shell: bash
         run: |
           ARCHIVE_NAME="cryptolayer-cli-${{ github.ref_name }}-${{ matrix.archive_ext }}"
           DIR_NAME="CryptoLayerCLI-${{ github.ref_name }}"
+          
           mkdir -p "dist/${DIR_NAME}"
           mv "dist/${{ matrix.artifact_name }}" "dist/${DIR_NAME}/"
           cp "src/wc_dict.json" "dist/${DIR_NAME}/"
-          tar -czf "${ARCHIVE_NAME}" -C dist "${DIR_NAME}"
-          # Перемещаем архив в папку dist для дальнейшей загрузки
-          mkdir -p dist_final && mv "${ARCHIVE_NAME}" dist_final/
+          
+          cd dist
+          tar -czf "${ARCHIVE_NAME}" "${DIR_NAME}"
+          rm -rf "${DIR_NAME}"
 
+      # --- СБОРКА АРХИВА ДЛЯ WINDOWS (через родной PowerShell) ---
       - name: Create Release Archive (Windows)
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
           $ArchiveName = "cryptolayer-cli-${{ github.ref_name }}-${{ matrix.archive_ext }}"
           $DirName = "CryptoLayerCLI-${{ github.ref_name }}"
+          
+          # Создаем внутреннюю папку структуры
           New-Item -ItemType Directory -Force -Path "dist/$DirName"
+          
+          # Перемещаем бинарник и копируем JSON
           Move-Item -Path "dist/${{ matrix.artifact_name }}" -Destination "dist/$DirName/"
           Copy-Item -Path "src/wc_dict.json" -Destination "dist/$DirName/"
+          
+          # Пакуем через системный Compress-Archive
           Compress-Archive -Path "dist/$DirName" -DestinationPath "dist/$ArchiveName" -Force
+          
+          # Чистим временную папку
+          Remove-Item -Recurse -Force -Path "dist/$DirName"
 
       - name: Upload binaries to GitHub Release
         uses: softprops/action-gh-release@v2
@@ -97,9 +133,6 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
-          files: |
-            dist_final/*
-            dist/*linux-amd64.tar.gz
-            dist/*windows-amd64.zip
+          files: dist/cryptolayer-cli-${{ github.ref_name }}-${{ matrix.archive_ext }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
