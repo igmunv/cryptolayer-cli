@@ -13,7 +13,7 @@
 
 </div>
 
-<img width="1750" height="1850" alt="user12-clcli" src="https://github.com/user-attachments/assets/797f91c3-51cc-4f92-823a-942ef94363d0" />
+<img width="1750" height="1850" alt="user12-clcli-ru" src="https://github.com/user-attachments/assets/0a9d5c70-5987-444f-8845-a58c9a9fc6e9" />
 
 
 
