@@ -4,3 +4,6 @@
 [submodule "modules"]
 	path = src/modules
 	url = https://github.com/igmunv/cryptolayer-modules
+[submodule "src/dicts"]
+	path = src/dicts
+	url = https://github.com/igmunv/cryptolayer-wordcoder-dicts.git
