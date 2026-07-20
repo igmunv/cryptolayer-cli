@@ -98,7 +98,7 @@ jobs:
           
           mkdir -p "dist/${DIR_NAME}"
           mv "dist/${{ matrix.artifact_name }}" "dist/${DIR_NAME}/"
-          cp "src/wc_dict.json" "dist/${DIR_NAME}/"
+          cp -r "src/dicts" "dist/${DIR_NAME}/dicts"
           
           cd dist
           tar -czf "${ARCHIVE_NAME}" "${DIR_NAME}"
@@ -117,7 +117,7 @@ jobs:
           
           # Перемещаем бинарник и копируем JSON
           Move-Item -Path "dist/${{ matrix.artifact_name }}" -Destination "dist/$DirName/"
-          Copy-Item -Path "src/wc_dict.json" -Destination "dist/$DirName/"
+          Copy-Item -Recurse -Path "src/dicts" -Destination "dist/$DirName/dicts"
           
           # Пакуем через системный Compress-Archive
           Compress-Archive -Path "dist/$DirName" -DestinationPath "dist/$ArchiveName" -Force
