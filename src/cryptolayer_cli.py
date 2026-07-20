@@ -186,7 +186,6 @@ class TerminalUI(UIProvider):
     def on_ping_timeout(self):
         console_status.stop()
         print_formatted_text(HTML(f'<ansired>Companion is unreachable. Ping timeout</ansired>'))
-        quit_clayer_cli(send_disconnect=False)
 
     # Собеседник сообщил об отключении
     def on_disconnect(self):
