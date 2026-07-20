@@ -15,13 +15,25 @@
 
 <img width="1750" height="1850" alt="user12-clcli-ru" src="https://github.com/user-attachments/assets/0a9d5c70-5987-444f-8845-a58c9a9fc6e9" />
 
+## 💬 Использование
+
+1. **🔑 Авторизация:** Введите пароль для шифрования локальных файлов CryptoLayer.
+2. **📖 Выбор словаря:** Укажите нужный словарь для работы **WordCoder**.
+3. **🧩 Модуль связи:** Выберите модуль и введите данные для авторизации в канале связи.
+4. **👤 Настройка чата:** Укажите идентификатор собеседника и убедитесь, что он тоже готов к подключению.
+5. **🛡️ Установление связи:** Ожидайте, пока CryptoLayer создаст защищенный туннель.
+6. **💬 Общение:** Безопасно переписывайтесь через шифрованный канал!
 
 
-## Запуск проекта
+## 🚀 Запуск CryptoLayer CLI
+
+
+> [!TIP]
+> Если вы не разработчик, скачайте готовый исполняемый файл в [последнем релизе](https://github.com/igmunv/cryptolayer-cli/releases/latest).
 
 ```bash
 
-git clone https://github.com/igmunv/CryptoLayer.git
+git clone https://github.com/igmunv/cryptolayer-cli.git
 
 cd CryptoLayer
 
@@ -31,7 +43,7 @@ cd CryptoLayer
 или
 ```bash
 
-git clone https://github.com/igmunv/CryptoLayer.git
+git clone https://github.com/igmunv/cryptolayer-cli.git
 
 cd CryptoLayer
 
@@ -48,6 +60,3 @@ cd src
 python3 run.py
 
 ```
-
-> [!TIP]
-> Если вам необходимо просто использовать CryptoLayer CLI по назначению, то лучше посмотрите последний релиз и скачайте оттуда готовый бинарный файл
