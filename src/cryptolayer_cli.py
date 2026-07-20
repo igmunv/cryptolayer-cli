@@ -6,6 +6,7 @@ from datetime import datetime
 import json
 import base64
 import html
+from pathlib import Path
 
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives import serialization, hashes
@@ -52,8 +53,8 @@ else:
 DATA_DIR = os.path.join(REAL_EXEC_DIR, 'data')
 CLI_DATA_DIR = os.path.join(DATA_DIR, 'cli')
 LOGS_FILE_PATH = os.path.join(REAL_EXEC_DIR, 'crypto_layer.log')
-WC_DICT_FILE_PATH = os.path.join(REAL_EXEC_DIR, 'wc_dict.json')
 HASH_FILE_PATH = os.path.join(CLI_DATA_DIR, "password.hash")
+DICTS_DIR = os.path.join(REAL_EXEC_DIR, 'dicts')
 
 ON_READY = False
 
@@ -170,9 +171,9 @@ class TerminalUI(UIProvider):
     # Возвращает True ДА или False НЕТ
     def check_signatures(self, my_sign: str, companion_sign: str) -> bool:
         console_status.stop()
-        print_formatted_text(HTML(f'Your signature (show this to companion):\n| <ansiyellow>{my_sign}</ansiyellow>\n'))
-        print_formatted_text(HTML(f'Companion signature (сheck for correctness):\n| <ansiyellow>{companion_sign}</ansiyellow>\n'))
-        ret = answer(f"Is the companion signature correct?")
+        print_formatted_text(HTML(f'Your signature (show this to peer):\n| <ansiyellow>{my_sign}</ansiyellow>\n'))
+        print_formatted_text(HTML(f'Peer signature (сheck for correctness):\n| <ansiyellow>{companion_sign}</ansiyellow>\n'))
+        ret = answer(f"Is the peer signature correct?")
         print()
         console_status.start()
         return ret
@@ -185,13 +186,13 @@ class TerminalUI(UIProvider):
     # Таймаут при пинге
     def on_ping_timeout(self):
         console_status.stop()
-        print_formatted_text(HTML(f'<ansired>Companion is unreachable. Ping timeout</ansired>'))
+        print_formatted_text(HTML(f'<ansired>Peer is unreachable. Ping timeout</ansired>'))
 
     # Собеседник сообщил об отключении
     def on_disconnect(self):
         if not ALREADY_QUIT:
             console_status.stop()
-            print_formatted_text(HTML(f'<ansired>Companion decided to disconnect</ansired>'))
+            print_formatted_text(HTML(f'<ansired>Peer decided to disconnect</ansired>'))
             quit_clayer_cli(send_disconnect=False)
 
 
@@ -374,7 +375,7 @@ def init_module():
 
             print()
 
-            sel_index = choice_index("Choice credentials", list(saved_credentials.items()))
+            sel_index = choice_index("Select a credentials", list(saved_credentials.items()))
             CREDS = list(saved_credentials.items())[sel_index][1]
 
             if len(CREDS) != len(credentials):
@@ -406,7 +407,7 @@ def init_module():
             saved_credentials[CRED_NAME] = CREDS
             save_credentials(saved_credentials, module_uid)
 
-    print(f'\n - - Companion - -\n')
+    print(f'\n - - Peer - -\n')
 
     saved_companions = load_json_to_dict(get_module_companions_file_path(module_uid))
 
@@ -414,7 +415,7 @@ def init_module():
 
     if saved_companions:
 
-        if answer("Do you want to choose a companion from your saved list?", yes_default=True):
+        if answer("Do you want to choose a peer from your saved list?", yes_default=True):
 
             print()
 
@@ -423,22 +424,22 @@ def init_module():
 
             print()
 
-            sel_index = choice_index("Choice companion", list(saved_companions.items()))
+            sel_index = choice_index("Select a peer", list(saved_companions.items()))
             COMPAN_ID = list(saved_companions.keys())[sel_index]
 
     if not COMPAN_ID:
-        COMPAN_ID = input(f"Companion ID (in module): {Fore.GREEN}").strip()
+        COMPAN_ID = input(f"Peer ID (in module): {Fore.GREEN}").strip()
         print(ColoramaStyle.RESET_ALL, end="")
 
         if not saved_companions.get(COMPAN_ID):
-            if answer("Do you want to save this companion?", yes_default=True):
+            if answer("Do you want to save this peer?", yes_default=True):
                 while True:
-                    COMPAN_NAME = input(f"Companion name: {Fore.GREEN}").strip()
+                    COMPAN_NAME = input(f"Peer name: {Fore.GREEN}").strip()
                     if COMPAN_NAME:
                         if COMPAN_NAME not in list(saved_companions.values()):
                             break
                         else:
-                            error("A companion with that name already exists!")
+                            error("A peer with that name already exists!")
                 saved_companions[COMPAN_ID] = COMPAN_NAME
                 save_dict_to_json(saved_companions, get_module_companions_file_path(module_uid))
 
@@ -513,12 +514,12 @@ def save_credentials(creds: dict, module_uid):
 
 
 def get_module_companions_file_path(uid):
-    return os.path.join(CLI_DATA_DIR, f'companions_{uid}.json')
+    return os.path.join(CLI_DATA_DIR, f'peer_{uid}.json')
 
 def get_module_credentials_file_path(uid):
     return os.path.join(CLI_DATA_DIR, f'credentials_{uid}.json')
 
-def choice_index(prompt, array):
+def choice_index(prompt, array) -> int:
     while True:
         selected_index = input(f'{prompt}: {Fore.GREEN}').strip()
         print(ColoramaStyle.RESET_ALL, end="")
@@ -534,6 +535,17 @@ def choice_index(prompt, array):
         else:
             error("Selected index does not exist!")
             continue
+
+
+def get_json_files(dir_path: str) -> list[Path]:
+
+    directory = Path(dir_path)
+
+    if not directory.exists() or not directory.is_dir():
+        return []
+
+    return [file for file in directory.iterdir() if file.is_file() and file.suffix.lower() == '.json']
+
 
 def main():
 
@@ -567,15 +579,27 @@ def main():
         save_password_hash(PASSWORD)
 
 
+    # choice dict for wordcoder
 
+    json_files = get_json_files(DICTS_DIR)
+    file_names = [file.name for file in json_files]
+
+    print()
+
+    for n, fname in enumerate(file_names):
+        print(f"{n+1}. {Fore.YELLOW}{fname}{ColoramaStyle.RESET_ALL}")
+
+    print()
+
+    selected_json_file = choice_index("Select a WordCoder dictionary (make sure peer uses the same dictionary)", file_names)
+
+    wc_dict = load_json_to_dict(os.path.join(DICTS_DIR, file_names[selected_json_file]))
 
     init_logger()
 
     init_module()
 
     ui = TerminalUI()
-
-    wc_dict = load_json_to_dict(WC_DICT_FILE_PATH)
 
     clayer = CryptoLayer(ui, DATA_DIR, MODULE_CLASS, PASSWORD, wc_dict)
 
