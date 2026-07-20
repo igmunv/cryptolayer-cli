@@ -333,6 +333,9 @@ def init_module():
             print_formatted_text(HTML(f"{n+1}. <ansiyellow>{name}</ansiyellow>: {desc}"))
 
     print()
+    print_formatted_text(HTML('<ansigreen>Details for each module are available on this page:</ansigreen> <a>https://github.com/igmunv/cryptolayer-modules/blob/main/README.md</a>'))
+    print()
+
 
     while True:
         selected_index = input(f'Choice module: {Fore.GREEN}').strip()
